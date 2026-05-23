@@ -2333,6 +2333,7 @@ export default class Ink {
         exitOnCtrlC={this.options.exitOnCtrlC}
         getHyperlinkAt={this.getHyperlinkAt}
         onClickAt={this.dispatchClick}
+        onCopySelectionNoClear={this.copySelectionNoClear}
         onCursorAdvance={this.noteExternalCursorAdvance}
         onCursorDeclaration={this.setCursorDeclaration}
         onExit={this.unmount}

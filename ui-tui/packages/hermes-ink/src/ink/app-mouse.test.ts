@@ -1,0 +1,48 @@
+import { describe, expect, it, vi } from 'vitest'
+
+import { handleMouseEvent } from './components/App.js'
+import { createSelectionState, startSelection, updateSelection } from './selection.js'
+
+const makeApp = () => {
+  const selection = createSelectionState()
+
+  return {
+    clickCount: 1,
+    lastHoverCol: -1,
+    lastHoverRow: -1,
+    mouseCaptureTarget: undefined,
+    props: {
+      onCopySelectionNoClear: vi.fn(async () => 'selected text'),
+      onHoverAt: vi.fn(),
+      onMouseDownAt: vi.fn(),
+      onMouseDragAt: vi.fn(),
+      onMouseUpAt: vi.fn(),
+      onSelectionChange: vi.fn(),
+      selection
+    }
+  } as any
+}
+
+describe('handleMouseEvent right-click selection behavior', () => {
+  it('copies an active selection instead of dispatching right-click paste handlers', () => {
+    const app = makeApp()
+
+    startSelection(app.props.selection, 0, 0)
+    updateSelection(app.props.selection, 4, 0)
+
+    handleMouseEvent(app, { action: 'press', button: 2, col: 3, kind: 'mouse', row: 1 })
+
+    expect(app.props.onCopySelectionNoClear).toHaveBeenCalledOnce()
+    expect(app.props.onMouseDownAt).not.toHaveBeenCalled()
+    expect(app.clickCount).toBe(0)
+  })
+
+  it('still dispatches right-click handlers when no text is selected', () => {
+    const app = makeApp()
+
+    handleMouseEvent(app, { action: 'press', button: 2, col: 3, kind: 'mouse', row: 1 })
+
+    expect(app.props.onCopySelectionNoClear).not.toHaveBeenCalled()
+    expect(app.props.onMouseDownAt).toHaveBeenCalledWith(2, 0, 2)
+  })
+})
