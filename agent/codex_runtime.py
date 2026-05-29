@@ -247,6 +247,33 @@ def run_codex_stream(agent, api_kwargs: dict, client: Any = None, on_first_delta
                             agent._client_log_context(),
                         )
                 final_response = stream.get_final_response()
+                # GUARD: If output is None (not even an empty list), the
+                # backend returned a non-SSE body — most commonly a
+                # Cloudflare challenge page or a gateway error page.
+                # The SDK's response parser silently leaves output=None
+                # in that case, which propagates as 'NoneType' object is
+                # not iterable when _normalize_codex_response iterates it.
+                # Raise a descriptive RuntimeError so the conversation
+                # loop classifies it correctly and falls back to an
+                # alternate provider instead of surfacing a confusing
+                # TypeError to the user.
+                _out = getattr(final_response, "output", None)
+                if _out is None:
+                    # Try to recover text from the streamed parts or
+                    # collected items so we can include a hint in the error.
+                    _hint = ""
+                    if agent._codex_streamed_text_parts:
+                        _hint = (
+                            f" Streamed text before failure: "
+                            f"{repr(''.join(agent._codex_streamed_text_parts)[:120])}"
+                        )
+                    elif collected_output_items:
+                        _hint = f" {len(collected_output_items)} output items were collected before failure."
+                    raise RuntimeError(
+                        f"Codex Responses stream completed but response.output is None — "
+                        f"the backend may have returned a non-SSE body (Cloudflare challenge, "
+                        f"gateway error page, or empty response).{_hint}"
+                    )
                 # PATCH: ChatGPT Codex backend streams valid output items
                 # but get_final_response() can return an empty output list.
                 # Backfill from collected items or synthesize from deltas.
